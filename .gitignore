@@ -1,0 +1,14 @@
+dist
+node_modules
+.env
+.env.dev
+.env.cert
+.env.prod
+.env.local
+.env.*.local
+coverage
+.turbo
+.idea
+.vscode
+*.log
+generated
