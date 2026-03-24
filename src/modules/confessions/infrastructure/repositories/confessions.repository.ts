@@ -20,6 +20,15 @@ export class ConfessionsRepository {
     })
   }
 
+  findByIdentifier(identifier: string) {
+    return this.prisma.confession.findFirst({
+      where: {
+        OR: [{ id: identifier }, { publicSlug: identifier }],
+      },
+      include: { community: true },
+    })
+  }
+
   async list(filters: {
     communityId?: string
     createdAt?: string

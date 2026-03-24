@@ -1,5 +1,6 @@
 export interface ConfessionEntity {
   id: string
+  slug: string
   communityId: string
   alias: string
   content: string

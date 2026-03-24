@@ -1,16 +1,28 @@
 import { VersioningType } from '@nestjs/common'
 import type { INestApplication } from '@nestjs/common'
 import { Test } from '@nestjs/testing'
-import request from 'supertest'
-import { AppModule } from 'src/app.module'
+import * as request from 'supertest'
+import { HealthController } from 'src/modules/health/presentation/controllers/health.controller'
+import { HealthService } from 'src/modules/health/application/services/health.service'
 
 describe('App (e2e)', () => {
   let app: INestApplication
+  const healthServiceMock = {
+    check: jest.fn().mockResolvedValue({
+      status: 'ok',
+      checks: { database: 'up', redis: 'up' },
+      timestamp: '2026-03-24T00:00:00.000Z',
+    }),
+  }
 
   beforeAll(async () => {
     const moduleFixture = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile()
+      controllers: [HealthController],
+      providers: [{ provide: HealthService, useValue: healthServiceMock }],
+    })
+      .overrideProvider(HealthService)
+      .useValue(healthServiceMock)
+      .compile()
 
     app = moduleFixture.createNestApplication()
     app.setGlobalPrefix('api')
@@ -22,13 +34,16 @@ describe('App (e2e)', () => {
     await app.close()
   })
 
-  it('/api/v1/sections (GET) should require app wiring', async () => {
+  it('/api/v1/health (GET) returns health payload', async () => {
     const httpServer = app.getHttpServer() as Parameters<typeof request>[0]
 
-    await request(httpServer)
-      .get('/api/v1/sections')
-      .expect((response) => {
-        expect([200, 500]).toContain(response.status)
-      })
+    const response = await request(httpServer).get('/api/v1/health').expect(200)
+
+    expect(response.body).toEqual({
+      status: 'ok',
+      checks: { database: 'up', redis: 'up' },
+      timestamp: '2026-03-24T00:00:00.000Z',
+    })
+    expect(healthServiceMock.check).toHaveBeenCalledTimes(1)
   })
 })

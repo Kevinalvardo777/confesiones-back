@@ -125,6 +125,7 @@ model Community {
 
 model Confession {
   id              String              @id @default(cuid())
+  publicSlug      String              @unique
   communityId     String              @map("sectionId")
   authorId        String?
   title           String?

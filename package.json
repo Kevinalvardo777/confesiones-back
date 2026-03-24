@@ -20,6 +20,7 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:e2e": "jest --config ./test/jest-e2e.json",
+    "validate:env:prod": "node scripts/validate-prod-env.mjs",
     "prepare": "husky",
     "prisma:generate": "prisma generate",
     "prisma:generate:local": "node scripts/run-with-env.mjs local prisma generate",

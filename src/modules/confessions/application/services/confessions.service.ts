@@ -16,11 +16,16 @@ export class ConfessionsService {
   constructor(private readonly confessionsRepository: ConfessionsRepository) {}
 
   async create(dto: CreateConfessionDto, currentUser: CurrentUserData) {
+    const normalizedAlias = dto.alias?.trim() || null
+    const isAnonymous = !normalizedAlias
+    const slugBase = normalizedAlias || dto.content.trim().slice(0, 48)
+
     const confession = await this.confessionsRepository.create({
       communityId: dto.communityId,
       authorId: currentUser.id,
-      alias: dto.alias?.trim() || null,
-      isAnonymous: !dto.alias?.trim(),
+      publicSlug: this.buildPublicSlug(slugBase),
+      alias: normalizedAlias,
+      isAnonymous,
       content: dto.content.trim(),
       status: ConfessionStatus.ACTIVE,
       publishedAt: new Date(),
@@ -52,22 +57,26 @@ export class ConfessionsService {
   }
 
   async detail(id: string) {
-    const confession = await this.confessionsRepository.findById(id)
+    const confession = await this.confessionsRepository.findByIdentifier(id)
     if (!confession || confession.deletedAt) {
       throw new NotFoundException('Confession not found')
     }
 
-    const updated = await this.confessionsRepository.incrementViews(id)
+    const updated = await this.confessionsRepository.incrementViews(confession.id)
     return this.toDto(updated)
   }
 
   async vote(id: string, stars: number, currentUser: CurrentUserData) {
-    const confession = await this.confessionsRepository.findById(id)
+    const confession = await this.confessionsRepository.findByIdentifier(id)
     if (!confession || confession.deletedAt) {
       throw new NotFoundException('Confession not found')
     }
 
-    const updated = await this.confessionsRepository.upsertRating(id, currentUser.id, stars)
+    const updated = await this.confessionsRepository.upsertRating(
+      confession.id,
+      currentUser.id,
+      stars,
+    )
     return this.toDto(updated)
   }
 
@@ -77,12 +86,18 @@ export class ConfessionsService {
   }
 
   async remove(id: string) {
-    await this.confessionsRepository.softDelete(id)
+    const confession = await this.confessionsRepository.findByIdentifier(id)
+    if (!confession || confession.deletedAt) {
+      throw new NotFoundException('Confession not found')
+    }
+
+    await this.confessionsRepository.softDelete(confession.id)
     return { deleted: true }
   }
 
   private toDto(confession: {
     id: string
+    publicSlug: string
     communityId: string
     alias: string | null
     isAnonymous: boolean
@@ -101,6 +116,7 @@ export class ConfessionsService {
 
     return {
       id: confession.id,
+      slug: confession.publicSlug,
       communityId: confession.communityId,
       alias: confession.isAnonymous ? ANONYMOUS_ALIAS : (confession.alias ?? ANONYMOUS_ALIAS),
       content: confession.content,
@@ -119,5 +135,20 @@ export class ConfessionsService {
             ? 'hidden'
             : 'reported',
     }
+  }
+
+  private buildPublicSlug(value: string): string {
+    const normalized = value
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 48)
+
+    const base = normalized || 'confesion'
+    const suffix = Math.random().toString(36).slice(2, 8)
+
+    return `${base}-${suffix}`
   }
 }
